@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome • Stock Prediction</title>
+  <!-- Tailwind (optional). Content still shows even if this fails. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Fallback so text is visible even if Tailwind fails */
+    html, body { height: 100%; }
+    body { margin: 0; background:#0f172a; color:#e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; }
+    /* Background canvas sits BEHIND content and cannot block clicks */
+    #bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+    .btn { display:inline-block; padding:.75rem 1rem; border-radius:.5rem; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <!-- Background (behind content) -->
+  <canvas id="bg"></canvas>
+
+  <!-- Page content -->
+  <header class="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+    <div class="text-lg font-semibold">📈 Stock Predictor</div>
+    <nav class="text-sm opacity-80">Welcome</nav>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-12">
+    <section class="grid md:grid-cols-2 gap-10 items-center">
+      <div>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">
+          Predict the <span class="text-emerald-400">Future</span> of Stocks
+        </h1>
+        <p class="mt-4 text-slate-300">
+          Interactive ML dashboard powered by XGBoost. Train a model for any symbol in your dataset and
+          visualize predicted vs actual prices.
+        </p>
+
+        <div class="mt-6 flex gap-3 items-center">
+          <a href="/dashboard" class="btn bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold">Start Predicting</a>
+          <a href="/dashboard" class="btn border border-slate-600 hover:bg-white/10 text-slate-200">Open Dashboard</a>
+        </div>
+
+        <div id="apiBox" class="mt-6 text-sm">
+          <span class="opacity-75">API Status:</span>
+          <span id="apiStatus" class="font-semibold">Checking…</span>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-700/60 p-6">
+        <h2 class="text-xl font-semibold mb-3">How it works</h2>
+        <ul class="list-disc pl-5 space-y-2 text-slate-300">
+          <li>Load your CSV once and preprocess features (OHLC, volume, MA5, MA10).</li>
+          <li>Train per-symbol XGBoost models and save to <code>models/</code>.</li>
+          <li>Predict the last 30 days and compute metrics (R², RMSE, MAE).</li>
+        </ul>
+        <p class="mt-4 text-xs opacity-70">Tip: open this page via <code>http://127.0.0.1:5000/</code>, not as a file.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="text-center text-xs opacity-70 py-10">Built with ❤️ — Stock Prediction Demo</footer>
+
+  <script>
+    // Simple, lightweight background particles (no libraries)
+    (function () {
+      const c = document.getElementById('bg');
+      const ctx = c.getContext('2d');
+      const DPR = window.devicePixelRatio || 1;
+      let w, h, particles;
+
+      function resize() {
+        w = c.width = innerWidth * DPR;
+        h = c.height = innerHeight * DPR;
+        c.style.width = innerWidth + 'px';
+        c.style.height = innerHeight + 'px';
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+
+      function initParticles(n = 60) {
+        particles = Array.from({ length: n }, () => ({
+          x: Math.random() * innerWidth,
+          y: Math.random() * innerHeight,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: (Math.random() - 0.5) * 0.6
+        }));
+      }
+
+      function tick() {
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        ctx.globalAlpha = 0.7;
+        particles.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > innerWidth) p.vx *= -1;
+          if (p.y < 0 || p.y > innerHeight) p.vy *= -1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
+          ctx.fillStyle = '#9ca3af';
+          ctx.fill();
+        });
+        requestAnimationFrame(tick);
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+      initParticles();
+      tick();
+    })();
+
+    // API status check (works whether served via Flask or opened directly)
+    (async function () {
+      const statusEl = document.getElementById('apiStatus');
+      let base = '';
+      if (location.port === '5000') {
+        base = location.origin; // served by Flask
+      } else {
+        base = 'http://127.0.0.1:5000';
+      }
+      try {
+        const r = await fetch(base + '/api/status');
+        const j = await r.json();
+        if (r.ok) {
+          statusEl.textContent = `Running • ${j.available_symbols} symbols`;
+        } else {
+          statusEl.textContent = 'Error';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Backend unreachable';
+      }
+    })();
+  </script>
+</body>
+</html>
+
+

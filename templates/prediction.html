@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Market Prediction Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white">
+  <header class="p-4 text-lg font-bold">📊 Stock Market Prediction Dashboard</header>
+
+  <main class="p-6 grid md:grid-cols-3 gap-6">
+    <!-- Left -->
+    <div>
+      <label class="block text-sm mb-1">Stock Symbol</label>
+      <input id="stockSymbol" type="text" placeholder="e.g. TCS, INFY" class="p-2 w-full text-black rounded" />
+      <div class="flex gap-2 mt-3">
+        <button id="predictBtn" class="bg-green-500 px-4 py-2 rounded">Predict</button>
+        <button id="resetBtn" class="bg-gray-500 px-4 py-2 rounded">Reset</button>
+      </div>
+      <button id="trainBtn" class="bg-blue-500 px-4 py-2 mt-3 rounded w-full">Train Model</button>
+      <div class="mt-4">
+        <button id="loadSymbolsBtn" class="bg-gray-700 px-3 py-1 rounded">Load Symbols</button>
+        <ul id="symbolsList" class="mt-2 text-sm opacity-80"></ul>
+      </div>
+    </div>
+
+    <!-- Middle -->
+    <div>
+      <h3 class="mb-2">Forecast Chart</h3>
+      <canvas id="forecastChart" class="bg-white rounded"></canvas>
+    </div>
+
+    <!-- Right -->
+    <div>
+      <h3 class="mb-2">Model Metrics</h3>
+      <p>R² Score: <span id="r2Score">—</span></p>
+      <p>RMSE: <span id="rmse">—</span></p>
+      <p>MAE: <span id="mae">—</span></p>
+      <p>Next Day Prediction: <span id="nextPrediction">—</span></p>
+      <p class="mt-4">API Status: <span id="apiStatus" class="font-bold">Checking…</span></p>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const apiStatusEl = document.getElementById('apiStatus');
+    const r2ScoreEl = document.getElementById('r2Score');
+    const rmseEl = document.getElementById('rmse');
+    const maeEl = document.getElementById('mae');
+    const nextPredEl = document.getElementById('nextPrediction');
+    const forecastChartEl = document.getElementById('forecastChart');
+    let chart;
+
+    async function checkApiStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        apiStatusEl.textContent = `Running — ${data.available_symbols} symbols`;
+      } catch {
+        apiStatusEl.textContent = 'Error connecting to API';
+      }
+    }
+
+    async function predictStock() {
+      const symbol = document.getElementById('stockSymbol').value.trim();
+      if (!symbol) return alert('Enter a stock symbol');
+      try {
+        const res = await fetch(`/api/predict?symbol=${symbol}`);
+        const data = await res.json();
+
+        // Update metrics
+        r2ScoreEl.textContent = data.r2 !== undefined ? data.r2.toFixed(4) : '—';
+        rmseEl.textContent = data.rmse !== undefined ? data.rmse.toFixed(4) : '—';
+        maeEl.textContent = data.mae !== undefined ? data.mae.toFixed(4) : '—';
+        nextPredEl.textContent = data.next_day_prediction !== undefined ? data.next_day_prediction.toFixed(2) : '—';
+
+        // Update chart
+        const labels = data.dates || [];
+        const actual = data.actual || [];
+        const predicted = data.predicted || [];
+        if (chart) chart.destroy();
+        chart = new Chart(forecastChartEl, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Actual', data: actual, borderColor: 'blue', fill: false },
+              { label: 'Predicted', data: predicted, borderColor: 'green', fill: false }
+            ]
+          }
+        });
+      } catch {
+        alert('Error fetching prediction');
+      }
+    }
+
+    async function loadSymbols() {
+      try {
+        const res = await fetch('/api/symbols');
+        const data = await res.json();
+        const list = document.getElementById('symbolsList');
+        list.innerHTML = '';
+        data.symbols.forEach(sym => {
+          const li = document.createElement('li');
+          li.textContent = sym;
+          list.appendChild(li);
+        });
+      } catch {
+        alert('Error loading symbols');
+      }
+    }
+
+    document.getElementById('predictBtn').addEventListener('click', predictStock);
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('stockSymbol').value = '';
+      if (chart) chart.destroy();
+    });
+    document.getElementById('trainBtn').addEventListener('click', () => alert('Train model endpoint not implemented yet'));
+    document.getElementById('loadSymbolsBtn').addEventListener('click', loadSymbols);
+
+    // Init
+    checkApiStatus();
+  </script>
+</body>
+</html>
